@@ -1,0 +1,32 @@
+# Running FastAPI
+
+## Prerequisites
+- Python 3.7+
+- Install FastAPI and Uvicorn:
+    ```bash
+    pip install fastapi uvicorn
+    ```
+
+## Example `main.py`
+```python
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+        return {"Hello": "World"}
+```
+
+## Run the Server
+```bash
+uvicorn main:app --reload
+```
+- `main`: Python file name (without `.py`)
+- `app`: FastAPI instance
+- `--reload`: Auto-reload on code changes (for development)
+
+## Access the API
+- Open [http://127.0.0.1:8000](http://127.0.0.1:8000)
+- Interactive docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- Alternative docs: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
