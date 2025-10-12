@@ -1,0 +1,13 @@
+*.pyc
+__pycache__/
+.env
+instance/
+.vscode/
+*.sqlite3
+.DS_Store
+*.log
+*.pot
+*.py[cod]
+*$py.class
+*.so
+venv/
