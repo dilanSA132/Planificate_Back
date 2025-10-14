@@ -1,33 +1,52 @@
-from fastapi import APIRouter, HTTPException, Depends
+from typing import List
+from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
-from models.User import User  
-from schemas import UserCreate, UserResponse
+from sqlalchemy import or_
+
+from models.User import User           
+from schemas import UserWrite, UserRead  
 from database import get_db
-from utils import get_password_hash 
+from utils import get_password_hash
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-@router.post("/", response_model=UserResponse)
-def create_user(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.username == user.username).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Usuario ya existe")
-    hashed_password = get_password_hash(user.password)
-    new_user = User(username=user.username, email=user.email, hashed_password=hashed_password)
+
+@router.post(
+    "/",
+    response_model=UserRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_user(payload: UserWrite, db: Session = Depends(get_db)):
+    exists = db.query(User).filter(
+        or_(User.username == payload.username, User.email == payload.email)
+    ).first()
+    if exists:
+        raise HTTPException(status_code=409, detail="Username o email ya existen")
+
+    hashed_password = get_password_hash(payload.password)
+    new_user = User(
+        username=payload.username,
+        email=payload.email,
+        hashed_password=hashed_password,
+    )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     return new_user
 
-@router.get("/", response_model=list[UserResponse])
+
+@router.get("/", response_model=List[UserRead])
 def get_users(db: Session = Depends(get_db)):
     return db.query(User).all()
 
-@router.delete("/{user_id}")
+
+@router.delete(
+    "/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 def delete_user(user_id: int, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    db.delete(user)
+    db.delete(u)
     db.commit()
-    return {"mensaje": "Usuario eliminado correctamente"}
