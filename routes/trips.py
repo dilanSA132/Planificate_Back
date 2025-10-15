@@ -17,7 +17,7 @@ def get_trips_by_owner(firebase_uid: str, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=TripRead, status_code=status.HTTP_201_CREATED)
 def create_trip(payload: TripWrite, db: Session = Depends(get_db)):
-    owner = db.query(User).filter(User.id == payload.owner_id).first()
+    owner = db.query(User).filter(User.firebase_uid == payload.owner_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Owner no existe")
 

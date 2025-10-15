@@ -26,11 +26,11 @@ class TripBase(BaseModel):
     end_date: Optional[date] = None
 
 class TripWrite(TripBase):
-    owner_id: int
+    owner_id: str
 
 class TripRead(TripBase):
     id: int
-    owner_id: int
+    owner_id: str
     created_at: datetime
     updated_at: datetime
 
@@ -44,12 +44,12 @@ class TripMemberBase(BaseModel):
 
 class TripMemberWrite(TripMemberBase):
     trip_id: int
-    user_id: int
+    user_id: str
 
 class TripMemberRead(TripMemberBase):
     id: int
     trip_id: int
-    user_id: int
+    user_id: str
     joined_at: datetime
 
     class Config:
@@ -99,12 +99,12 @@ class ChatMessageBase(BaseModel):
 
 class ChatMessageWrite(ChatMessageBase):
     trip_id: int
-    user_id: int
+    user_id: str
 
 class ChatMessageRead(ChatMessageBase):
     id: int
     trip_id: int
-    user_id: int
+    user_id: str
     created_at: datetime
 
     class Config:
@@ -118,12 +118,12 @@ class PoiCostEstimateBase(BaseModel):
 
 class PoiCostEstimateWrite(PoiCostEstimateBase):
     poi_id: int
-    user_id: int
+    user_id: str
 
 class PoiCostEstimateRead(PoiCostEstimateBase):
     id: int
     poi_id: int
-    user_id: int
+    user_id: str
 
     class Config:
         orm_mode = True
