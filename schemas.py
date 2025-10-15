@@ -6,15 +6,14 @@ from datetime import date, datetime
 
 # ---------- Users ----------
 class UserBase(BaseModel):
+    firebase_uid: str
     username: str
     email: EmailStr
 
 class UserWrite(UserBase):
-    password: str
+    pass
 
 class UserRead(UserBase):
-    id: int
-
     class Config:
         orm_mode = True
 

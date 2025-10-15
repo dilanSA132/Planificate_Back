@@ -7,7 +7,7 @@ class PoiCostEstimate(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     poi_id = Column(Integer, ForeignKey("pois.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.firebase_uid", ondelete="CASCADE"), nullable=False, index=True)
     amount = Column(Numeric(12, 2), nullable=False)
     currency = Column(String(10), default="USD", nullable=False)
 

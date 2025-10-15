@@ -10,7 +10,7 @@ class TripMember(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     trip_id = Column(Integer, ForeignKey("trips.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.firebase_uid", ondelete="CASCADE"), nullable=False, index=True)
     role = Column(String(50), nullable=True)
     joined_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

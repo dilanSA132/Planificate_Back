@@ -1,3 +1,4 @@
+
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -9,6 +10,10 @@ from database import get_db
 
 router = APIRouter(prefix="/trips", tags=["Trips"])
 
+@router.get("/by_owner/{firebase_uid}", response_model=List[TripRead])
+def get_trips_by_owner(firebase_uid: str, db: Session = Depends(get_db)):
+    trips = db.query(Trip).filter(Trip.owner_id == firebase_uid).all()
+    return trips
 
 @router.post("/", response_model=TripRead, status_code=status.HTTP_201_CREATED)
 def create_trip(payload: TripWrite, db: Session = Depends(get_db)):
