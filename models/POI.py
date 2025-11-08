@@ -11,6 +11,11 @@ class POI(Base):
     notes = Column(Text)
     lat = Column(Float, nullable=True)
     lng = Column(Float, nullable=True)
+    # Location/place fields (human-readable)
+    address = Column(String(250), nullable=True)  # Full address
+    city = Column(String(100), nullable=True)
+    country = Column(String(100), nullable=True)
+    place_name = Column(String(200), nullable=True)  # e.g., "Restaurante XYZ"
 
     trip = relationship("Trip", back_populates="pois")
     estimates = relationship("PoiCostEstimate", back_populates="poi", cascade="all, delete-orphan")

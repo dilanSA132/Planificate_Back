@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Date, DateTime, ForeignKey, func
+from sqlalchemy import Column, Integer, String, Text, Date, DateTime, ForeignKey, func, Float
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -11,6 +11,12 @@ class Trip(Base):
     description = Column(Text)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
+    center_lat = Column(Float, nullable=True)
+    center_lng = Column(Float, nullable=True)
+    # Location/place fields (human-readable)
+    city = Column(String(100), nullable=True)  # Main city/destination
+    country = Column(String(100), nullable=True)
+    address = Column(String(250), nullable=True)  # Optional detailed address
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

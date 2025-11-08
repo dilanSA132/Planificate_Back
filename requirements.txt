@@ -7,4 +7,6 @@ passlib[bcrypt]
 python-dotenv
 psycopg2-binary
 alembic
-argon2-cffi 
+argon2-cffi
+httpx 
+requests
