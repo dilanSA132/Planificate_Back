@@ -78,9 +78,22 @@ class POIBase(BaseModel):
     city: Optional[str] = None
     country: Optional[str] = None
     place_name: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
 
 class POIWrite(POIBase):
     trip_id: int
+
+class POIUpdate(BaseModel):
+    """Schema for partial updates (PATCH) - all fields optional"""
+    name: Optional[str] = None
+    notes: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    place_name: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
 
 class POIRead(POIBase):
     id: int

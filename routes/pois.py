@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from models.Trip import Trip
 from models.POI import POI
-from schemas import POIWrite, POIRead
+from schemas import POIWrite, POIRead, POIUpdate
 from database import get_db
 from utils.geocoding_helpers import geocode_place_to_coords, reverse_geocode_coords, build_place_query
 
@@ -93,15 +93,16 @@ router2 = APIRouter(prefix="/pois", tags=["POIs"])
 
 
 @router2.patch("/{poi_id}", response_model=POIRead)
-def update_poi_by_id(poi_id: int, payload: POIWrite, db: Session = Depends(get_db)):
+def update_poi_by_id(poi_id: int, payload: POIUpdate, db: Session = Depends(get_db)):
     """Actualizar POI por ID directamente (sin requerir trip_id en la ruta)"""
     poi = db.query(POI).filter_by(id=poi_id).first()
     if not poi:
         raise HTTPException(status_code=404, detail="POI no encontrado")
 
-    for k, v in payload.model_dump(exclude_unset=True).items():
-        if v is not None:
-            setattr(poi, k, v)
+    # Solo actualizar campos que fueron proporcionados
+    update_data = payload.model_dump(exclude_unset=True)
+    for k, v in update_data.items():
+        setattr(poi, k, v)
 
     db.commit()
     db.refresh(poi)

@@ -30,6 +30,9 @@ try:
         conn.execute(text("ALTER TABLE pois ADD COLUMN IF NOT EXISTS city VARCHAR(100);"))
         conn.execute(text("ALTER TABLE pois ADD COLUMN IF NOT EXISTS country VARCHAR(100);"))
         conn.execute(text("ALTER TABLE pois ADD COLUMN IF NOT EXISTS place_name VARCHAR(200);"))
+        
+        # POI scheduled date
+        conn.execute(text("ALTER TABLE pois ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMP WITH TIME ZONE;"))
 except Exception:
     import sys, traceback
     traceback.print_exc()
