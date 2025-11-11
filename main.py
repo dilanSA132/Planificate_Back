@@ -33,6 +33,10 @@ try:
         
         # POI scheduled date
         conn.execute(text("ALTER TABLE pois ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMP WITH TIME ZONE;"))
+        
+        # POI duration and cost
+        conn.execute(text("ALTER TABLE pois ADD COLUMN IF NOT EXISTS duration_minutes INTEGER;"))
+        conn.execute(text("ALTER TABLE pois ADD COLUMN IF NOT EXISTS estimated_cost DOUBLE PRECISION;"))
 except Exception:
     import sys, traceback
     traceback.print_exc()

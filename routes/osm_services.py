@@ -9,7 +9,9 @@ import httpx
 import hashlib
 import json
 from datetime import datetime, timedelta
+from utils.logger import setup_api_logger
 
+logger = setup_api_logger()
 router = APIRouter(prefix="/osm", tags=["OSM Services"])
 
 # Simple in-memory cache (for production use Redis)
@@ -135,6 +137,7 @@ class RouteResponse(BaseModel):
     duration: float = Field(..., description="Duration in seconds")
     geometry: str = Field(..., description="Encoded polyline")
     waypoints: List[Dict[str, Any]] = Field(default_factory=list)
+    legs: List[Dict[str, Any]] = Field(default_factory=list, description="Segments between waypoints")
 
 
 @router.post("/route/calculate", response_model=RouteResponse)
@@ -167,17 +170,21 @@ async def calculate_route(req: RouteRequest):
             resp.raise_for_status()
             data = resp.json()
     except httpx.HTTPError as e:
+        logger.error(f"OSRM API error: {str(e)}")
         raise HTTPException(502, f"OSRM API error: {str(e)}")
     
     if data.get("code") != "Ok":
+        logger.error(f"OSRM returned error: {data.get('message', 'Unknown')}")
         raise HTTPException(400, f"OSRM error: {data.get('message', 'Unknown')}")
     
     route = data["routes"][0]
+    
     result = RouteResponse(
         distance=route["distance"],
         duration=route["duration"],
         geometry=route["geometry"],
-        waypoints=data.get("waypoints", [])
+        waypoints=data.get("waypoints", []),
+        legs=route.get("legs", [])
     )
     
     _set_cache(cache_key, result)

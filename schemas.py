@@ -79,6 +79,8 @@ class POIBase(BaseModel):
     country: Optional[str] = None
     place_name: Optional[str] = None
     scheduled_at: Optional[datetime] = None
+    duration_minutes: Optional[int] = None  # How long to spend at this POI (in minutes)
+    estimated_cost: Optional[float] = None  # Estimated cost for this POI
 
 class POIWrite(POIBase):
     trip_id: int
@@ -94,6 +96,8 @@ class POIUpdate(BaseModel):
     country: Optional[str] = None
     place_name: Optional[str] = None
     scheduled_at: Optional[datetime] = None
+    duration_minutes: Optional[int] = None
+    estimated_cost: Optional[float] = None
 
 class POIRead(POIBase):
     id: int
