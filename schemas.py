@@ -24,6 +24,12 @@ class TripBase(BaseModel):
     description: Optional[str] = None
     start_date: date
     end_date: Optional[date] = None
+    # Can provide coords OR place name; coords will be geocoded if missing
+    center_lat: Optional[float] = None
+    center_lng: Optional[float] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    address: Optional[str] = None
 
 class TripWrite(TripBase):
     owner_id: str
@@ -31,6 +37,11 @@ class TripWrite(TripBase):
 class TripRead(TripBase):
     id: int
     owner_id: str
+    center_lat: Optional[float] = None
+    center_lng: Optional[float] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    address: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -60,15 +71,43 @@ class TripMemberRead(TripMemberBase):
 class POIBase(BaseModel):
     name: str
     notes: Optional[str] = None
+    # Can provide coords OR address/place; will geocode if only address provided
     lat: Optional[float] = None
     lng: Optional[float] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    place_name: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
+    duration_minutes: Optional[int] = None  # How long to spend at this POI (in minutes)
+    estimated_cost: Optional[float] = None  # Estimated cost for this POI
 
 class POIWrite(POIBase):
     trip_id: int
 
+class POIUpdate(BaseModel):
+    """Schema for partial updates (PATCH) - all fields optional"""
+    name: Optional[str] = None
+    notes: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    place_name: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
+    duration_minutes: Optional[int] = None
+    estimated_cost: Optional[float] = None
+
 class POIRead(POIBase):
     id: int
     trip_id: int
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    place_name: Optional[str] = None
 
     class Config:
         orm_mode = True
