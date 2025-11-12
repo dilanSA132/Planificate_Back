@@ -9,13 +9,31 @@ class UserBase(BaseModel):
     firebase_uid: str
     username: str
     email: EmailStr
+    bio: Optional[str] = None
+    profile_image_url: Optional[str] = None
 
 class UserWrite(UserBase):
     pass
 
+class UserUpdate(BaseModel):
+    """Partial update for users"""
+    username: Optional[str] = None
+    bio: Optional[str] = None
+    profile_image_url: Optional[str] = None
+
 class UserRead(UserBase):
+    followers_count: int
+    following_count: int
+    created_at: datetime
+    updated_at: datetime
+
     class Config:
         orm_mode = True
+
+class UserProfileRead(UserRead):
+    """Extended user profile with follow status"""
+    is_following: Optional[bool] = None  # True if current user follows this user
+    is_followed_by: Optional[bool] = None  # True if this user follows current user
 
 
 # ---------- Trips ----------
@@ -30,6 +48,7 @@ class TripBase(BaseModel):
     city: Optional[str] = None
     country: Optional[str] = None
     address: Optional[str] = None
+    is_public: Optional[bool] = False
 
 class TripWrite(TripBase):
     owner_id: str
@@ -42,6 +61,7 @@ class TripRead(TripBase):
     city: Optional[str] = None
     country: Optional[str] = None
     address: Optional[str] = None
+    is_public: bool
     created_at: datetime
     updated_at: datetime
 
@@ -163,6 +183,122 @@ class PoiCostEstimateRead(PoiCostEstimateBase):
     id: int
     poi_id: int
     user_id: str
+
+    class Config:
+        orm_mode = True
+
+
+# ---------- Public Routes (Social Feature) ----------
+from typing import List
+
+class PublicRouteStopBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    address: Optional[str] = None
+    place_name: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    estimated_cost: Optional[float] = None
+    photos: Optional[List[str]] = None
+
+class PublicRouteStopCreate(PublicRouteStopBase):
+    order_index: int
+
+class PublicRouteStopRead(PublicRouteStopBase):
+    id: int
+    route_id: int
+    order_index: int
+
+    class Config:
+        orm_mode = True
+
+
+class PublicRouteBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    total_distance_km: Optional[float] = None
+    total_duration_hours: Optional[float] = None
+    estimated_total_cost: Optional[float] = None
+    difficulty_level: Optional[str] = None  # easy, moderate, hard
+    tags: Optional[List[str]] = None
+    season: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    center_lat: Optional[float] = None
+    center_lng: Optional[float] = None
+
+class PublicRouteCreate(PublicRouteBase):
+    original_trip_id: Optional[int] = None
+    stops: List[PublicRouteStopCreate]
+
+class PublicRouteUpdate(BaseModel):
+    """Partial update for public routes"""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    difficulty_level: Optional[str] = None
+    tags: Optional[List[str]] = None
+    season: Optional[str] = None
+
+class PublicRouteRead(PublicRouteBase):
+    id: int
+    original_trip_id: Optional[int] = None
+    author_id: str
+    author_username: Optional[str] = None  # Username del autor
+    author_profile_image_url: Optional[str] = None  # Foto de perfil del autor
+    views_count: int
+    likes_count: int
+    saves_count: int
+    is_published: bool
+    published_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    # Include stops
+    stops: List[PublicRouteStopRead] = []
+
+    class Config:
+        orm_mode = True
+
+
+# ---------- Follows ----------
+class FollowCreate(BaseModel):
+    following_id: str  # ID del usuario a seguir
+
+class FollowRead(BaseModel):
+    id: int
+    follower_id: str
+    following_id: str
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
+# ---------- Route Interactions ----------
+class RouteLikeCreate(BaseModel):
+    route_id: int
+
+class RouteLikeRead(BaseModel):
+    id: int
+    route_id: int
+    user_id: str
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
+class RouteSaveCreate(BaseModel):
+    route_id: int
+
+class RouteSaveRead(BaseModel):
+    id: int
+    route_id: int
+    user_id: str
+    created_at: datetime
 
     class Config:
         orm_mode = True

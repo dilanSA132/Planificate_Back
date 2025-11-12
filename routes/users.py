@@ -1,10 +1,11 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
-from models.User import User           
-from schemas import UserWrite, UserRead  
+from models.User import User
+from models.Follow import Follow
+from schemas import UserWrite, UserRead, UserUpdate, UserProfileRead
 from database import get_db
 from utils import get_password_hash
 
@@ -37,6 +38,89 @@ def create_user(payload: UserWrite, db: Session = Depends(get_db)):
 @router.get("/", response_model=List[UserRead])
 def get_users(db: Session = Depends(get_db)):
     return db.query(User).all()
+
+
+@router.get("/{user_id}", response_model=UserRead)
+def get_user(user_id: str, db: Session = Depends(get_db)):
+    """
+    Get a user by ID.
+    """
+    user = db.query(User).filter(User.firebase_uid == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@router.get("/{user_id}/profile", response_model=UserProfileRead)
+def get_user_profile(
+    user_id: str,
+    current_user_id: Optional[str] = None,  # In production, get from auth token
+    db: Session = Depends(get_db)
+):
+    """
+    Get user profile with follow status.
+    """
+    user = db.query(User).filter(User.firebase_uid == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check follow status if current_user_id is provided
+    is_following = None
+    is_followed_by = None
+    
+    if current_user_id:
+        # Check if current user follows this user
+        follow = db.query(Follow).filter(
+            Follow.follower_id == current_user_id,
+            Follow.following_id == user_id
+        ).first()
+        is_following = follow is not None
+        
+        # Check if this user follows current user
+        reverse_follow = db.query(Follow).filter(
+            Follow.follower_id == user_id,
+            Follow.following_id == current_user_id
+        ).first()
+        is_followed_by = reverse_follow is not None
+    
+    # Convert to dict and add follow status
+    profile_dict = {
+        "firebase_uid": user.firebase_uid,
+        "username": user.username,
+        "email": user.email,
+        "bio": user.bio,
+        "profile_image_url": user.profile_image_url,
+        "followers_count": user.followers_count,
+        "following_count": user.following_count,
+        "created_at": user.created_at,
+        "updated_at": user.updated_at,
+        "is_following": is_following,
+        "is_followed_by": is_followed_by,
+    }
+    
+    return UserProfileRead(**profile_dict)
+
+
+@router.patch("/{user_id}", response_model=UserRead)
+def update_user(
+    user_id: str,
+    user_update: UserUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Update user profile.
+    """
+    user = db.query(User).filter(User.firebase_uid == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    update_data = user_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(user, key, value)
+    
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 @router.delete(

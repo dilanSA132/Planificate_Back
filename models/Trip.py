@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Date, DateTime, ForeignKey, func, Float
+from sqlalchemy import Column, Integer, String, Text, Date, DateTime, ForeignKey, func, Float, Boolean
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -17,6 +17,7 @@ class Trip(Base):
     city = Column(String(100), nullable=True)  # Main city/destination
     country = Column(String(100), nullable=True)
     address = Column(String(250), nullable=True)  # Optional detailed address
+    is_public = Column(Boolean, default=False, nullable=False)  # Social feature: public routes
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
