@@ -10,6 +10,8 @@ from routes import (
     chat_messages,
     poi_cost_estimates,
     osm_services,
+    public_routes,
+    follows,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -37,6 +39,17 @@ try:
         # POI duration and cost
         conn.execute(text("ALTER TABLE pois ADD COLUMN IF NOT EXISTS duration_minutes INTEGER;"))
         conn.execute(text("ALTER TABLE pois ADD COLUMN IF NOT EXISTS estimated_cost DOUBLE PRECISION;"))
+        
+        # Trip social features
+        conn.execute(text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE;"))
+        
+        # User social features
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_url VARCHAR(500);"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS followers_count INTEGER DEFAULT 0;"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS following_count INTEGER DEFAULT 0;"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();"))
 except Exception:
     import sys, traceback
     traceback.print_exc()
@@ -90,3 +103,5 @@ app.include_router(itinerary.router)
 app.include_router(chat_messages.router)
 app.include_router(poi_cost_estimates.router)
 app.include_router(osm_services.router)
+app.include_router(public_routes.router)
+app.include_router(follows.router)
