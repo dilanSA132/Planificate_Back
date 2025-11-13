@@ -1,6 +1,6 @@
 # schemas.py (Pydantic v1)
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List
 from datetime import date, datetime
 
 
@@ -135,6 +135,7 @@ class POIRead(POIBase):
 
 # ---------- Itinerary Items ----------
 class ItineraryItemBase(BaseModel):
+    name: Optional[str] = None  # For activities without POI
     start_ts: datetime
     end_ts: Optional[datetime] = None
     status: Optional[str] = None
@@ -150,6 +151,43 @@ class ItineraryItemRead(ItineraryItemBase):
 
     class Config:
         orm_mode = True
+
+
+# ---------- Schedule (Combined POIs and ItineraryItems) ----------
+class ScheduleActivity(BaseModel):
+    """Represents an activity in the schedule (POI or ItineraryItem)"""
+    id: str  # "poi_{id}" or "item_{id}"
+    type: str  # "poi" or "itinerary_item"
+    name: str
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    duration_minutes: Optional[int] = None
+    poi_id: Optional[int] = None
+    itinerary_item_id: Optional[int] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    estimated_cost: Optional[float] = None
+    description: Optional[str] = None
+
+class FreeTimeSlot(BaseModel):
+    """Represents free time between activities"""
+    start_time: datetime
+    end_time: datetime
+    duration_minutes: int
+
+class ScheduleDay(BaseModel):
+    """Schedule for a specific day"""
+    date: date
+    activities: List[ScheduleActivity] = []
+    free_time_slots: List[FreeTimeSlot] = []
+
+class TripSchedule(BaseModel):
+    """Complete schedule for a trip"""
+    trip_id: int
+    days: List[ScheduleDay] = []
+    unscheduled_pois: List[POIRead] = []  # POIs without scheduled_at
+    unscheduled_items: List[ItineraryItemRead] = []  # ItineraryItems without start_ts
 
 
 # ---------- Chat Messages ----------
@@ -189,7 +227,6 @@ class PoiCostEstimateRead(PoiCostEstimateBase):
 
 
 # ---------- Public Routes (Social Feature) ----------
-from typing import List
 
 class PublicRouteStopBase(BaseModel):
     name: str

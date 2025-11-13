@@ -8,6 +8,7 @@ class ItineraryItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     trip_id = Column(Integer, ForeignKey("trips.id", ondelete="CASCADE"), nullable=False, index=True)
     poi_id = Column(Integer, ForeignKey("pois.id", ondelete="SET NULL"), nullable=True, index=True)
+    name = Column(String(150), nullable=True)  # For activities without POI
     start_ts = Column(DateTime(timezone=True), nullable=False)
     end_ts = Column(DateTime(timezone=True), nullable=True)
     status = Column(String(40), nullable=True)
