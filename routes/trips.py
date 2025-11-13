@@ -89,9 +89,6 @@ def get_trips_by_owner_or_member(firebase_uid: str, db: Session = Depends(get_db
 
     return normalized
 
-# ================================================================
-# POST – Create trip
-# ================================================================
 @router.post("/", response_model=TripRead, status_code=status.HTTP_201_CREATED)
 async def create_trip(payload: TripWrite, db: Session = Depends(get_db)):
     owner = db.query(User).filter(User.firebase_uid == payload.owner_id).first()
@@ -100,7 +97,6 @@ async def create_trip(payload: TripWrite, db: Session = Depends(get_db)):
 
     data = payload.model_dump()
 
-    # Auto-geocode if no coordinates were given
     if data.get("center_lat") is None or data.get("center_lng") is None:
         place_query = build_place_query(
             city=data.get("city"),
@@ -134,16 +130,12 @@ async def create_trip(payload: TripWrite, db: Session = Depends(get_db)):
     db.refresh(trip)
     return trip
 
-# ================================================================
-# GET – List all trips (NOT USED BY FLUTTER)
-# ================================================================
+
 @router.get("/", response_model=List[TripRead])
 def list_trips(db: Session = Depends(get_db)):
     return db.query(Trip).all()
 
-# ================================================================
-# GET – Single trip
-# ================================================================
+
 @router.get("/{trip_id}", response_model=TripRead)
 def get_trip(trip_id: int, db: Session = Depends(get_db)):
     t = db.query(Trip).filter(Trip.id == trip_id).first()
@@ -151,9 +143,7 @@ def get_trip(trip_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Viaje no encontrado")
     return t
 
-# ================================================================
-# PUT – Update trip
-# ================================================================
+
 @router.put("/{trip_id}", response_model=TripRead)
 def update_trip(trip_id: int, payload: TripWrite, db: Session = Depends(get_db)):
     t = db.query(Trip).filter(Trip.id == trip_id).first()
@@ -172,9 +162,7 @@ def update_trip(trip_id: int, payload: TripWrite, db: Session = Depends(get_db))
     db.refresh(t)
     return t
 
-# ================================================================
-# DELETE – Delete trip
-# ================================================================
+
 @router.delete("/{trip_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_trip(trip_id: int, db: Session = Depends(get_db)):
     t = db.query(Trip).filter(Trip.id == trip_id).first()
@@ -183,9 +171,7 @@ def delete_trip(trip_id: int, db: Session = Depends(get_db)):
     db.delete(t)
     db.commit()
 
-# ================================================================
-# POST – Add collaborator
-# ================================================================
+
 @router.post("/{trip_id}/add-member")
 def add_member_to_trip(trip_id: int, email: str, db: Session = Depends(get_db)):
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
@@ -215,9 +201,7 @@ def add_member_to_trip(trip_id: int, email: str, db: Session = Depends(get_db)):
 
     return {"message": "Colaborador añadido correctamente", "member_id": member.id}
 
-# ================================================================
-# GET – List trip members
-# ================================================================
+
 @router.get("/{trip_id}/members")
 def list_trip_members(trip_id: int, db: Session = Depends(get_db)):
 
@@ -245,9 +229,6 @@ def list_trip_members(trip_id: int, db: Session = Depends(get_db)):
 
     return result
 
-# ================================================================
-# DELETE – Remove collaborator
-# ================================================================
 @router.delete("/{trip_id}/remove-member/{user_id}")
 def remove_member(trip_id: int, user_id: str, db: Session = Depends(get_db)):
     member = db.query(TripMember).filter(
