@@ -1,6 +1,6 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 
 from models.Trip import Trip
@@ -8,23 +8,23 @@ from models.User import User
 from models.TripMember import TripMember
 from schemas import TripWrite, TripRead
 from database import get_db
-from utils.geocoding_helpers import geocode_place_to_coords, reverse_geocode_coords, build_place_query
-from sqlalchemy.orm import joinedload
+from utils.geocoding_helpers import (
+    geocode_place_to_coords,
+    reverse_geocode_coords,
+    build_place_query
+)
+import json
 
 router = APIRouter(prefix="/trips", tags=["Trips"])
-
-
-
-from models.User import User
-from models.TripMember import TripMember
-
-@router.get("/by_owner/{firebase_uid}", response_model=List[TripRead])
+@router.get("/by_owner/{firebase_uid}")
 def get_trips_by_owner_or_member(firebase_uid: str, db: Session = Depends(get_db)):
 
     trips = (
         db.query(Trip)
         .options(
-            joinedload(Trip.members).joinedload(TripMember.user)  # carga user
+            joinedload(Trip.owner),
+            joinedload(Trip.members).joinedload(TripMember.user),
+            joinedload(Trip.pois),
         )
         .outerjoin(TripMember, Trip.id == TripMember.trip_id)
         .filter(
@@ -37,22 +37,61 @@ def get_trips_by_owner_or_member(firebase_uid: str, db: Session = Depends(get_db
         .all()
     )
 
-    print("\n=== VIAJES ENCONTRADOS ===")
+    normalized = []
+
     for trip in trips:
-        print(f"- Trip: {trip.title} (id={trip.id})")
+        normalized.append({
+            "id": trip.id,
+            "owner_id": trip.owner_id,
+            "title": trip.title,
+            "description": trip.description,
+            "start_date": trip.start_date,
+            "end_date": trip.end_date,
+            "center_lat": trip.center_lat,
+            "center_lng": trip.center_lng,
+            "city": trip.city,
+            "country": trip.country,
+            "address": trip.address,
+            "is_public": trip.is_public,
+            "created_at": trip.created_at,
+            "updated_at": trip.updated_at,
 
-        if not trip.members:
-            print("  Sin colaboradores.\n")
-            continue
+            # ⭐ POIs SOLO id + name
+            "pois": [
+                {"id": p.id, "name": p.name}
+                for p in trip.pois
+            ],
 
-        print("  Colaboradores:")
-        for m in trip.members:
-            print(f"   • UID: {m.user_id} | Nombre: {m.user.username if m.user else '??'} | Email: {m.user.email if m.user else '??'}")
+            # ⭐ colaboradores completos
+            "members": [
+                {
+                    "user_id": m.user.firebase_uid,
+                    "username": m.user.username,
+                    "email": m.user.email,
+                    "profile_image_url": m.user.profile_image_url,
+                    "role": m.role,
+                    "joined_at": m.joined_at
+                }
+                for m in trip.members
+            ],
 
-    print("===========================\n")
+            # ⭐ owner
+            "owner": {
+                "user_id": trip.owner.firebase_uid,
+                "username": trip.owner.username,
+                "email": trip.owner.email,
+                "profile_image_url": trip.owner.profile_image_url,
+            }
+        })
 
-    return trips
+    print("\n📤 Enviando trips normalizados:")
+    print(json.dumps(normalized, default=str, ensure_ascii=False, indent=2))
 
+    return normalized
+
+# ================================================================
+# POST – Create trip
+# ================================================================
 @router.post("/", response_model=TripRead, status_code=status.HTTP_201_CREATED)
 async def create_trip(payload: TripWrite, db: Session = Depends(get_db)):
     owner = db.query(User).filter(User.firebase_uid == payload.owner_id).first()
@@ -61,7 +100,7 @@ async def create_trip(payload: TripWrite, db: Session = Depends(get_db)):
 
     data = payload.model_dump()
 
-    # Auto-geocode
+    # Auto-geocode if no coordinates were given
     if data.get("center_lat") is None or data.get("center_lng") is None:
         place_query = build_place_query(
             city=data.get("city"),
@@ -77,7 +116,7 @@ async def create_trip(payload: TripWrite, db: Session = Depends(get_db)):
                 if not data.get("address"):
                     data["address"] = display_name
 
-    # Reverse geocode
+    # Reverse geocode for missing fields
     if data.get("center_lat") and data.get("center_lng"):
         if not data.get("city") or not data.get("country"):
             result = await reverse_geocode_coords(data["center_lat"], data["center_lng"])
@@ -95,13 +134,16 @@ async def create_trip(payload: TripWrite, db: Session = Depends(get_db)):
     db.refresh(trip)
     return trip
 
-
-
+# ================================================================
+# GET – List all trips (NOT USED BY FLUTTER)
+# ================================================================
 @router.get("/", response_model=List[TripRead])
 def list_trips(db: Session = Depends(get_db)):
     return db.query(Trip).all()
 
-
+# ================================================================
+# GET – Single trip
+# ================================================================
 @router.get("/{trip_id}", response_model=TripRead)
 def get_trip(trip_id: int, db: Session = Depends(get_db)):
     t = db.query(Trip).filter(Trip.id == trip_id).first()
@@ -109,8 +151,9 @@ def get_trip(trip_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Viaje no encontrado")
     return t
 
-
-
+# ================================================================
+# PUT – Update trip
+# ================================================================
 @router.put("/{trip_id}", response_model=TripRead)
 def update_trip(trip_id: int, payload: TripWrite, db: Session = Depends(get_db)):
     t = db.query(Trip).filter(Trip.id == trip_id).first()
@@ -129,7 +172,9 @@ def update_trip(trip_id: int, payload: TripWrite, db: Session = Depends(get_db))
     db.refresh(t)
     return t
 
-
+# ================================================================
+# DELETE – Delete trip
+# ================================================================
 @router.delete("/{trip_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_trip(trip_id: int, db: Session = Depends(get_db)):
     t = db.query(Trip).filter(Trip.id == trip_id).first()
@@ -138,6 +183,9 @@ def delete_trip(trip_id: int, db: Session = Depends(get_db)):
     db.delete(t)
     db.commit()
 
+# ================================================================
+# POST – Add collaborator
+# ================================================================
 @router.post("/{trip_id}/add-member")
 def add_member_to_trip(trip_id: int, email: str, db: Session = Depends(get_db)):
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
@@ -167,7 +215,9 @@ def add_member_to_trip(trip_id: int, email: str, db: Session = Depends(get_db)):
 
     return {"message": "Colaborador añadido correctamente", "member_id": member.id}
 
-
+# ================================================================
+# GET – List trip members
+# ================================================================
 @router.get("/{trip_id}/members")
 def list_trip_members(trip_id: int, db: Session = Depends(get_db)):
 
@@ -189,14 +239,15 @@ def list_trip_members(trip_id: int, db: Session = Depends(get_db)):
             "joined_at": m.joined_at
         })
 
-    print(f"\n📌 Enviando miembros del trip {trip_id}:")
+    print(f"\n📌 Miembros del trip {trip_id}:")
     for r in result:
         print(f" → {r['username']} ({r['email']})")
-    print()
 
     return result
 
-
+# ================================================================
+# DELETE – Remove collaborator
+# ================================================================
 @router.delete("/{trip_id}/remove-member/{user_id}")
 def remove_member(trip_id: int, user_id: str, db: Session = Depends(get_db)):
     member = db.query(TripMember).filter(
