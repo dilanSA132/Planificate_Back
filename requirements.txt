@@ -11,3 +11,4 @@ argon2-cffi
 httpx 
 requests
 dotenv
+python-multipart

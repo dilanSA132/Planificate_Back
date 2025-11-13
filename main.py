@@ -12,6 +12,7 @@ from routes import (
     osm_services,
     public_routes,
     follows,
+    files,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -53,6 +54,11 @@ try:
         
         # ItineraryItem name field (for activities without POI)
         conn.execute(text("ALTER TABLE itinerary_items ADD COLUMN IF NOT EXISTS name VARCHAR(150);"))
+        
+        # ChatMessage file fields
+        conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS file_url VARCHAR(500);"))
+        conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS file_type VARCHAR(50);"))
+        conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS file_name VARCHAR(255);"))
 except Exception:
     import sys, traceback
     traceback.print_exc()
@@ -108,3 +114,4 @@ app.include_router(poi_cost_estimates.router)
 app.include_router(osm_services.router)
 app.include_router(public_routes.router)
 app.include_router(follows.router)
+app.include_router(files.router)

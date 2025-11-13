@@ -132,6 +132,9 @@ def publish_trip_as_route(
         )
         db.add(stop)
     
+    # Actualizar el campo is_public del viaje original a True
+    trip.is_public = True
+    
     db.commit()
     db.refresh(new_route)
     # Load author relationship
@@ -251,6 +254,7 @@ def delete_public_route(
 ):
     """
     Delete a public route (only author can delete).
+    Also sets the original trip's is_public to False.
     """
     route = db.query(PublicRoute).filter(PublicRoute.id == route_id).first()
     
@@ -259,6 +263,12 @@ def delete_public_route(
     
     if route.author_id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this route")
+    
+    # Si existe un viaje original asociado, cambiar su estado a privado
+    if route.original_trip_id:
+        original_trip = db.query(Trip).filter(Trip.id == route.original_trip_id).first()
+        if original_trip:
+            original_trip.is_public = False
     
     db.delete(route)
     db.commit()

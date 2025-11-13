@@ -29,10 +29,17 @@ def post_message(trip_id: int, payload: ChatMessageWrite, db: Session = Depends(
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no existe")
 
+    # Validar que haya al menos body o archivo
+    if not payload.body.strip() and not payload.file_url:
+        raise HTTPException(status_code=400, detail="El mensaje debe tener texto o un archivo adjunto")
+    
     msg = ChatMessage(
         trip_id=trip_id,
         user_id=payload.user_id,
-        body=payload.body
+        body=payload.body or "",  # Permitir body vacío si hay archivo
+        file_url=payload.file_url,
+        file_type=payload.file_type,
+        file_name=payload.file_name
     )
 
     db.add(msg)

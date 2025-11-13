@@ -192,7 +192,10 @@ class TripSchedule(BaseModel):
 
 # ---------- Chat Messages ----------
 class ChatMessageBase(BaseModel):
-    body: str
+    body: str = ""  # Permitir body vacío si hay archivo
+    file_url: Optional[str] = None
+    file_type: Optional[str] = None
+    file_name: Optional[str] = None  # Nombre original del archivo
 
 class ChatMessageWrite(ChatMessageBase):
     trip_id: int

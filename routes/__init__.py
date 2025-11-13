@@ -5,6 +5,7 @@ from . import pois
 from . import itinerary
 from . import chat_messages
 from . import poi_cost_estimates
+from . import files
 
 __all__ = [
     "users",
@@ -14,4 +15,5 @@ __all__ = [
     "itinerary",
     "chat_messages",
     "poi_cost_estimates",
+    "files",
 ]

@@ -210,24 +210,116 @@ class OptimizeResponse(BaseModel):
 @router.post("/route/optimize", response_model=OptimizeResponse)
 async def optimize_route(req: OptimizeRequest):
     """
-    Optimize visit order using OSRM /trip endpoint (solves TSP).
+    Optimize visit order using TSP algorithm (Nearest Neighbor).
+    Since OSRM public server doesn't support /trip endpoint, we implement our own TSP.
     """
     if len(req.points) < 2:
         raise HTTPException(400, "Need at least 2 points")
     
-    coords = ";".join([f"{p[1]},{p[0]}" for p in req.points])
-    cache_key = hashlib.md5(f"trip:{req.profile}:{coords}:{req.roundtrip}".encode()).hexdigest()
+    # Cache key basado en los puntos y parámetros
+    coords_str = ";".join([f"{p[1]},{p[0]}" for p in req.points])
+    cache_key = hashlib.md5(f"tsp:{req.profile}:{coords_str}:{req.roundtrip}".encode()).hexdigest()
     
     cached = _get_cache(cache_key)
     if cached:
         return cached
     
-    url = f"https://router.project-osrm.org/trip/v1/{req.profile}/{coords}"
-    params = {
-        "overview": "full",
-        "geometries": "polyline",
-        "roundtrip": "true" if req.roundtrip else "false"
-    }
+    # Si solo hay 2 puntos, no hay optimización que hacer
+    if len(req.points) == 2:
+        coords = ";".join([f"{p[1]},{p[0]}" for p in req.points])
+        url = f"https://router.project-osrm.org/route/v1/{req.profile}/{coords}"
+        params = {"overview": "full", "geometries": "polyline", "steps": "false"}
+        
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.get(url, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"OSRM API error: {str(e)}")
+        
+        if data.get("code") != "Ok":
+            raise HTTPException(400, f"OSRM error: {data.get('message', 'Unknown')}")
+        
+        route = data["routes"][0]
+        waypoints = [{"waypoint_index": 0}, {"waypoint_index": 1}]
+        
+        result = OptimizeResponse(
+            distance=route["distance"],
+            duration=route["duration"],
+            geometry=route["geometry"],
+            waypoints=waypoints,
+            trips=[route]
+        )
+        
+        _set_cache(cache_key, result)
+        return result
+    
+    # Calcular matriz de distancias usando fórmula de Haversine (más precisa para coordenadas geográficas)
+    # Para una mejor precisión, podríamos usar OSRM /table, pero es más lento
+    from math import radians, sin, cos, sqrt, atan2
+    
+    def haversine_distance(lat1, lon1, lat2, lon2):
+        """Calcular distancia entre dos puntos usando fórmula de Haversine (en grados)"""
+        # Convertir a radianes
+        lat1_rad = radians(lat1)
+        lon1_rad = radians(lon1)
+        lat2_rad = radians(lat2)
+        lon2_rad = radians(lon2)
+        
+        # Diferencia de latitud y longitud
+        dlat = lat2_rad - lat1_rad
+        dlon = lon2_rad - lon1_rad
+        
+        # Fórmula de Haversine
+        a = sin(dlat / 2)**2 + cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        
+        # Retornar distancia (aproximada, suficiente para comparar)
+        return c
+    
+    n = len(req.points)
+    distances = [[0.0] * n for _ in range(n)]
+    
+    for i in range(n):
+        for j in range(i + 1, n):
+            # Distancia usando Haversine
+            lat1, lon1 = req.points[i]
+            lat2, lon2 = req.points[j]
+            dist = haversine_distance(lat1, lon1, lat2, lon2)
+            distances[i][j] = dist
+            distances[j][i] = dist
+    
+    # Algoritmo Nearest Neighbor para TSP
+    visited = [False] * n
+    order = [0]  # Empezar desde el primer punto
+    visited[0] = True
+    
+    for _ in range(n - 1):
+        current = order[-1]
+        nearest = None
+        min_dist = float('inf')
+        
+        for j in range(n):
+            if not visited[j] and distances[current][j] < min_dist:
+                min_dist = distances[current][j]
+                nearest = j
+        
+        if nearest is not None:
+            order.append(nearest)
+            visited[nearest] = True
+    
+    # Si roundtrip, agregar regreso al inicio
+    if req.roundtrip:
+        order.append(order[0])
+    
+    # Reordenar puntos según el orden optimizado (sin el punto final si es roundtrip)
+    optimized_points = [req.points[i] for i in (order[:-1] if req.roundtrip else order)]
+    
+    # Calcular ruta con el orden optimizado usando /route de OSRM
+    coords = ";".join([f"{p[1]},{p[0]}" for p in optimized_points])
+    url = f"https://router.project-osrm.org/route/v1/{req.profile}/{coords}"
+    params = {"overview": "full", "geometries": "polyline", "steps": "false"}
     
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -240,13 +332,18 @@ async def optimize_route(req: OptimizeRequest):
     if data.get("code") != "Ok":
         raise HTTPException(400, f"OSRM error: {data.get('message', 'Unknown')}")
     
-    trip = data["trips"][0]
+    route = data["routes"][0]
+    
+    # Crear waypoints con los índices originales en el orden optimizado
+    # El orden ya está optimizado, así que los waypoints reflejan ese orden
+    waypoints = [{"waypoint_index": idx} for idx in (order[:-1] if req.roundtrip else order)]
+    
     result = OptimizeResponse(
-        distance=trip["distance"],
-        duration=trip["duration"],
-        geometry=trip["geometry"],
-        waypoints=data.get("waypoints", []),
-        trips=data.get("trips", [])
+        distance=route["distance"],
+        duration=route["duration"],
+        geometry=route["geometry"],
+        waypoints=waypoints,
+        trips=[route]
     )
     
     _set_cache(cache_key, result)

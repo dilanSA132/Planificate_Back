@@ -11,3 +11,4 @@ instance/
 *$py.class
 *.so
 venv/
+uploads/
