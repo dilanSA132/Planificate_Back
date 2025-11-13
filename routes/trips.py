@@ -1,19 +1,56 @@
-
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from models.Trip import Trip
 from models.User import User
+from models.TripMember import TripMember
 from schemas import TripWrite, TripRead
 from database import get_db
 from utils.geocoding_helpers import geocode_place_to_coords, reverse_geocode_coords, build_place_query
+from sqlalchemy.orm import joinedload
 
 router = APIRouter(prefix="/trips", tags=["Trips"])
 
+
+
+from models.User import User
+from models.TripMember import TripMember
+
 @router.get("/by_owner/{firebase_uid}", response_model=List[TripRead])
-def get_trips_by_owner(firebase_uid: str, db: Session = Depends(get_db)):
-    trips = db.query(Trip).filter(Trip.owner_id == firebase_uid).all()
+def get_trips_by_owner_or_member(firebase_uid: str, db: Session = Depends(get_db)):
+
+    trips = (
+        db.query(Trip)
+        .options(
+            joinedload(Trip.members).joinedload(TripMember.user)  # carga user
+        )
+        .outerjoin(TripMember, Trip.id == TripMember.trip_id)
+        .filter(
+            or_(
+                Trip.owner_id == firebase_uid,
+                TripMember.user_id == firebase_uid
+            )
+        )
+        .distinct()
+        .all()
+    )
+
+    print("\n=== VIAJES ENCONTRADOS ===")
+    for trip in trips:
+        print(f"- Trip: {trip.title} (id={trip.id})")
+
+        if not trip.members:
+            print("  Sin colaboradores.\n")
+            continue
+
+        print("  Colaboradores:")
+        for m in trip.members:
+            print(f"   • UID: {m.user_id} | Nombre: {m.user.username if m.user else '??'} | Email: {m.user.email if m.user else '??'}")
+
+    print("===========================\n")
+
     return trips
 
 @router.post("/", response_model=TripRead, status_code=status.HTTP_201_CREATED)
@@ -23,8 +60,8 @@ async def create_trip(payload: TripWrite, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Owner no existe")
 
     data = payload.model_dump()
-    
-    # Auto-geocode: if no coords but city/country provided, geocode to get coords
+
+    # Auto-geocode
     if data.get("center_lat") is None or data.get("center_lng") is None:
         place_query = build_place_query(
             city=data.get("city"),
@@ -37,11 +74,10 @@ async def create_trip(payload: TripWrite, db: Session = Depends(get_db)):
                 lat, lon, display_name = result
                 data["center_lat"] = lat
                 data["center_lng"] = lon
-                # Fill in address if not provided
                 if not data.get("address"):
                     data["address"] = display_name
-    
-    # Auto-reverse-geocode: if coords provided but no city/country, reverse geocode
+
+    # Reverse geocode
     if data.get("center_lat") and data.get("center_lng"):
         if not data.get("city") or not data.get("country"):
             result = await reverse_geocode_coords(data["center_lat"], data["center_lng"])
@@ -60,6 +96,7 @@ async def create_trip(payload: TripWrite, db: Session = Depends(get_db)):
     return trip
 
 
+
 @router.get("/", response_model=List[TripRead])
 def list_trips(db: Session = Depends(get_db)):
     return db.query(Trip).all()
@@ -73,6 +110,7 @@ def get_trip(trip_id: int, db: Session = Depends(get_db)):
     return t
 
 
+
 @router.put("/{trip_id}", response_model=TripRead)
 def update_trip(trip_id: int, payload: TripWrite, db: Session = Depends(get_db)):
     t = db.query(Trip).filter(Trip.id == trip_id).first()
@@ -80,7 +118,7 @@ def update_trip(trip_id: int, payload: TripWrite, db: Session = Depends(get_db))
         raise HTTPException(status_code=404, detail="Viaje no encontrado")
 
     if payload.owner_id != t.owner_id:
-        owner = db.query(User).filter(User.id == payload.owner_id).first()
+        owner = db.query(User).filter(User.firebase_uid == payload.owner_id).first()
         if not owner:
             raise HTTPException(status_code=404, detail="Owner no existe")
 
@@ -99,3 +137,77 @@ def delete_trip(trip_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Viaje no encontrado")
     db.delete(t)
     db.commit()
+
+@router.post("/{trip_id}/add-member")
+def add_member_to_trip(trip_id: int, email: str, db: Session = Depends(get_db)):
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Viaje no encontrado")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado con ese email")
+
+    exists = db.query(TripMember).filter(
+        TripMember.trip_id == trip_id,
+        TripMember.user_id == user.firebase_uid
+    ).first()
+
+    if exists:
+        raise HTTPException(status_code=400, detail="Este usuario ya es miembro del viaje")
+
+    member = TripMember(
+        trip_id=trip_id,
+        user_id=user.firebase_uid,
+        role="collaborator"
+    )
+    db.add(member)
+    db.commit()
+    db.refresh(member)
+
+    return {"message": "Colaborador añadido correctamente", "member_id": member.id}
+
+
+@router.get("/{trip_id}/members")
+def list_trip_members(trip_id: int, db: Session = Depends(get_db)):
+
+    members = (
+        db.query(TripMember)
+        .join(User, TripMember.user_id == User.firebase_uid)
+        .filter(TripMember.trip_id == trip_id)
+        .all()
+    )
+
+    result = []
+    for m in members:
+        result.append({
+            "user_id": m.user_id,
+            "username": m.user.username,
+            "email": m.user.email,
+            "profile_image_url": m.user.profile_image_url,
+            "role": m.role,
+            "joined_at": m.joined_at
+        })
+
+    print(f"\n📌 Enviando miembros del trip {trip_id}:")
+    for r in result:
+        print(f" → {r['username']} ({r['email']})")
+    print()
+
+    return result
+
+
+@router.delete("/{trip_id}/remove-member/{user_id}")
+def remove_member(trip_id: int, user_id: str, db: Session = Depends(get_db)):
+    member = db.query(TripMember).filter(
+        TripMember.trip_id == trip_id,
+        TripMember.user_id == user_id
+    ).first()
+
+    if not member:
+        raise HTTPException(status_code=404, detail="Este usuario no es miembro del viaje")
+
+    db.delete(member)
+    db.commit()
+
+    return {"message": "Colaborador eliminado correctamente"}
