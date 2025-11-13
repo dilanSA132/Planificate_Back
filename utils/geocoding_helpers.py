@@ -100,3 +100,28 @@ def build_place_query(city: Optional[str] = None, country: Optional[str] = None,
         parts.append(country)
     
     return ", ".join(parts) if parts else None
+
+
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """
+    Calculate the great circle distance between two points on the Earth
+    (specified in decimal degrees) using the Haversine formula.
+    
+    Returns:
+        Distance in meters
+    """
+    from math import radians, cos, sin, asin, sqrt
+    
+    # Convert decimal degrees to radians
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    
+    # Haversine formula
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a))
+    
+    # Radius of earth in meters
+    r = 6371000
+    
+    return c * r

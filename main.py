@@ -50,6 +50,9 @@ try:
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS following_count INTEGER DEFAULT 0;"))
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();"))
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();"))
+        
+        # ItineraryItem name field (for activities without POI)
+        conn.execute(text("ALTER TABLE itinerary_items ADD COLUMN IF NOT EXISTS name VARCHAR(150);"))
 except Exception:
     import sys, traceback
     traceback.print_exc()
