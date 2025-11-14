@@ -173,33 +173,27 @@ def delete_trip(trip_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{trip_id}/add-member")
-def add_member_to_trip(trip_id: int, email: str, db: Session = Depends(get_db)):
+def add_member_to_trip(
+    trip_id: int, 
+    email: str,
+    invited_by_id: str = None,  # En producción, obtener del token de autenticación. Si no se proporciona, usar owner_id
+    db: Session = Depends(get_db)
+):
+    """Enviar invitación a un colaborador (ahora crea una invitación en lugar de agregar directamente)"""
+    from routes.trip_invitations import create_invitation
+    from schemas import TripInvitationWrite
+    
+    # Si no se proporciona invited_by_id, usar el owner_id del viaje
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Viaje no encontrado")
-
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado con ese email")
-
-    exists = db.query(TripMember).filter(
-        TripMember.trip_id == trip_id,
-        TripMember.user_id == user.firebase_uid
-    ).first()
-
-    if exists:
-        raise HTTPException(status_code=400, detail="Este usuario ya es miembro del viaje")
-
-    member = TripMember(
-        trip_id=trip_id,
-        user_id=user.firebase_uid,
-        role="collaborator"
-    )
-    db.add(member)
-    db.commit()
-    db.refresh(member)
-
-    return {"message": "Colaborador añadido correctamente", "member_id": member.id}
+    
+    if not invited_by_id:
+        invited_by_id = trip.owner_id
+    
+    payload = TripInvitationWrite(email=email, message=None)
+    invitation = create_invitation(trip_id, payload, invited_by_id, db)
+    return {"message": "Invitación enviada correctamente", "invitation_id": invitation["id"]}
 
 
 @router.get("/{trip_id}/members")

@@ -12,6 +12,7 @@ class User(Base):
     profile_image_url = Column(String(500), nullable=True)  # URL de imagen de perfil
     followers_count = Column(Integer, default=0, nullable=False)  # Contador de seguidores
     following_count = Column(Integer, default=0, nullable=False)  # Contador de seguidos
+    fcm_token = Column(String(500), nullable=True)  # Firebase Cloud Messaging token
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

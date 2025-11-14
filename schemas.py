@@ -2,6 +2,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import date, datetime
+from enum import Enum
 
 
 # ---------- Users ----------
@@ -20,6 +21,11 @@ class UserUpdate(BaseModel):
     username: Optional[str] = None
     bio: Optional[str] = None
     profile_image_url: Optional[str] = None
+    fcm_token: Optional[str] = None  # Firebase Cloud Messaging token
+
+class FCMTokenUpdate(BaseModel):
+    """Schema para actualizar el token FCM"""
+    fcm_token: str
 
 class UserRead(UserBase):
     followers_count: int
@@ -339,6 +345,40 @@ class RouteSaveRead(BaseModel):
     route_id: int
     user_id: str
     created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
+# ---------- Trip Invitations ----------
+class InvitationStatus(str, Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+class TripInvitationBase(BaseModel):
+    trip_id: int
+    invited_user_id: str
+    invited_by_id: str
+    message: Optional[str] = None
+    status: InvitationStatus = InvitationStatus.PENDING
+
+class TripInvitationWrite(BaseModel):
+    email: str  # Email del usuario a invitar
+    message: Optional[str] = None  # Mensaje opcional
+
+class TripInvitationRead(BaseModel):
+    id: int
+    trip_id: int
+    invited_user_id: str
+    invited_by_id: str
+    message: Optional[str] = None
+    status: str
+    created_at: datetime
+    responded_at: Optional[datetime] = None
+    trip: Optional[TripRead] = None  # Info del viaje
+    invited_by: Optional[UserRead] = None  # Quien invitó
+    invited_user: Optional[UserRead] = None  # Usuario invitado
 
     class Config:
         orm_mode = True

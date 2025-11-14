@@ -13,6 +13,8 @@ from routes import (
     public_routes,
     follows,
     files,
+    trip_invitations,
+    user_invitations,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -59,6 +61,29 @@ try:
         conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS file_url VARCHAR(500);"))
         conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS file_type VARCHAR(50);"))
         conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS file_name VARCHAR(255);"))
+        
+        # User FCM token
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token VARCHAR(500);"))
+        
+        # Trip Invitations table
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS trip_invitations (
+                id SERIAL PRIMARY KEY,
+                trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+                invited_user_id VARCHAR(64) NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+                invited_by_id VARCHAR(64) NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+                status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                message VARCHAR(500),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                responded_at TIMESTAMP WITH TIME ZONE,
+                UNIQUE(trip_id, invited_user_id)
+            );
+        """))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_trip_invitations_id ON trip_invitations(id);"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_trip_invitations_trip_id ON trip_invitations(trip_id);"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_trip_invitations_invited_user_id ON trip_invitations(invited_user_id);"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_trip_invitations_invited_by_id ON trip_invitations(invited_by_id);"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_trip_invitations_status ON trip_invitations(status);"))
 except Exception:
     import sys, traceback
     traceback.print_exc()
@@ -106,6 +131,8 @@ async def http_exception_handler(request, exc: HTTPException):
 app.include_router(users.router)
 app.include_router(trips.router)
 app.include_router(trip_members.router)
+app.include_router(trip_invitations.router)
+app.include_router(user_invitations.router)
 app.include_router(pois.router)
 app.include_router(pois.router2)
 app.include_router(itinerary.router)

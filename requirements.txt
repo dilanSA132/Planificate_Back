@@ -12,3 +12,4 @@ httpx
 requests
 dotenv
 python-multipart
+firebase-admin>=6.0.0

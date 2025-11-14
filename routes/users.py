@@ -5,7 +5,7 @@ from sqlalchemy import or_
 
 from models.User import User
 from models.Follow import Follow
-from schemas import UserWrite, UserRead, UserUpdate, UserProfileRead
+from schemas import UserWrite, UserRead, UserUpdate, UserProfileRead, FCMTokenUpdate
 from database import get_db
 from utils import get_password_hash
 
@@ -121,6 +121,24 @@ def update_user(
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.put("/{user_id}/fcm-token", status_code=status.HTTP_200_OK)
+def update_fcm_token(
+    user_id: str,
+    payload: FCMTokenUpdate,
+    db: Session = Depends(get_db)
+):
+    """Actualizar el token FCM de un usuario"""
+    user = db.query(User).filter(User.firebase_uid == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    user.fcm_token = payload.fcm_token
+    db.commit()
+    db.refresh(user)
+    
+    return {"message": "Token FCM actualizado correctamente"}
 
 
 @router.delete(

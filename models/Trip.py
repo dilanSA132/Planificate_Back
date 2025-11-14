@@ -26,3 +26,4 @@ class Trip(Base):
     pois = relationship("POI", back_populates="trip", cascade="all, delete-orphan")
     itinerary_items = relationship("ItineraryItem", back_populates="trip", cascade="all, delete-orphan")
     chat_messages = relationship("ChatMessage", back_populates="trip", cascade="all, delete-orphan")
+    invitations = relationship("TripInvitation", back_populates="trip", cascade="all, delete-orphan")

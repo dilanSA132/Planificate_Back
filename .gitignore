@@ -12,3 +12,4 @@ instance/
 *.so
 venv/
 uploads/
+serviceAccountKey.json
